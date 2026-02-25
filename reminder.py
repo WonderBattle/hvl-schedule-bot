@@ -6,6 +6,8 @@ import pytz
 import schedule
 import time
 import threading
+from flask import Flask
+from threading import Thread
 from dotenv import load_dotenv
 from oauth2client.service_account import ServiceAccountCredentials
 from icalendar import Calendar
@@ -148,7 +150,24 @@ def save_user(message):
         bot.reply_to(message, "❌ Error saving to database. Check if the Robot has permissions.")
         print(f"DEBUG ERROR: {e}")
 
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot is running!"
+
+def run_web_server():
+    # Render provides a PORT environment variable automatically
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
+
 if __name__ == "__main__":
+    # 1. Start the Web Server (to keep Render awake)
+    Thread(target=run_web_server).start()
+    
+    # 2. Start the Scheduler (for 21:00 reminders)
     threading.Thread(target=run_scheduler, daemon=True).start()
+    
     print("🚀 Bot is live and listening...")
+    # 3. Start the Telegram Listener
     bot.infinity_polling()

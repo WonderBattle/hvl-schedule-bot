@@ -1,0 +1,7 @@
+# Google Cloud Credentials
+hvl-bot-project-8e665288849f.json
+
+# Python environment
+__pycache__/
+venv/
+.env

@@ -1,85 +1,53 @@
 import os
-import requests
-from icalendar import Calendar
-from datetime import datetime, timedelta
-import pytz
+import telebot
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
-# Load settings from GitHub Secrets
-ICAL_URL = os.getenv("TIMEEDIT_URL")
+# 1. Setup Google Sheets
+# Use the EXACT name of your downloaded JSON file here
+JSON_FILE = 'hvl-bot-project-8e665288849f.json'
+
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+creds = ServiceAccountCredentials.from_json_keyfile_name(JSON_FILE, scope)
+client = gspread.authorize(creds)
+# Make sure this matches the name of your Google Sheet exactly
+sheet = client.open("HVL_Bot_Data").sheet1
+
+# 2. Setup Bot
+# Use your Telegram Token from BotFather
 TOKEN = os.getenv("TELEGRAM_TOKEN")
-CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+bot = telebot.TeleBot(TOKEN)
 
-def get_tomorrow_classes():
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    welcome_text = (
+        "👋 Hi! I'm your HVL Class Reminder Bot.\n\n"
+        "To get started, please paste your TimeEdit iCal link here.\n"
+        "It should look like: https://cloud.timeedit.net/.../....ics"
+    )
+    bot.reply_to(message, welcome_text)
+
+@bot.message_handler(func=lambda message: ".ics" in message.text)
+def handle_link(message):
+    chat_id = str(message.chat.id)
+    url = message.text.strip()
+    username = message.from_user.username or "Unknown"
+
     try:
-        response = requests.get(ICAL_URL)
-        response.raise_for_status()
-        calendar = Calendar.from_ical(response.content)
-        
-        tz = pytz.timezone("Europe/Oslo")
-        now = datetime.now(tz)
-        
-        # WEEKEND MODE: 
-        # If today is Friday (4) or Saturday (5), we don't look for classes for tomorrow.
-        # Weekday returns 0 for Monday, 4 for Friday, 5 for Saturday.
-        if now.weekday() in [4, 5]:
-            print("Weekend Mode Active: No reminders sent on Friday/Saturday.")
-            return "WEEKEND_MODE"
-
-        tomorrow = (now + timedelta(days=1)).date()
-        events = []
-        
-        for component in calendar.walk('VEVENT'):
-            start_dt = component.get('dtstart').dt
-            end_dt = component.get('dtend').dt
-            
-            # Handle timezone and time formatting
-            if isinstance(start_dt, datetime):
-                start_local = start_dt.astimezone(tz)
-                end_local = end_dt.astimezone(tz)
-                event_date = start_local.date()
-                
-                # Calculate duration
-                duration = end_local - start_local
-                hours, remainder = divmod(duration.seconds, 3600)
-                minutes = remainder // 60
-                dur_str = f"{hours}h {minutes}m" if minutes > 0 else f"{hours}h"
-                
-                time_info = f"{start_local.strftime('%H:%M')} - {end_local.strftime('%H:%M')} ({dur_str})"
-            else:
-                event_date = start_dt
-                time_info = "All day"
-
-            if event_date == tomorrow:
-                summary = str(component.get('summary'))
-                location = component.get('location', 'No room specified')
-                
-                # Clean the summary to find the Course Code (e.g., DAT151)
-                parts = summary.split(',')
-                course_title = parts[-1].replace("Emne: ", "").strip() if "Emne:" in summary else parts[0]
-                
-                events.append(f"📚 *{course_title}*\n⏰ {time_info}\n📍 {location}")
-        
-        return events
+        # Check if user already exists in the sheet
+        cell = sheet.find(chat_id)
+        if cell:
+            # Update existing user's link (Column B is index 2)
+            sheet.update_cell(cell.row, 2, url)
+            bot.reply_to(message, "✅ Your link has been updated!")
+        else:
+            # Add new user: [chat_id, url, username]
+            sheet.append_row([chat_id, url, username])
+            bot.reply_to(message, "🚀 Success! You are now registered. I will send you reminders every evening.")
     except Exception as e:
+        bot.reply_to(message, "❌ Oops! Something went wrong while saving your data.")
         print(f"Error: {e}")
-        return None
-
-def send_telegram(message):
-    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    payload = {"chat_id": CHAT_ID, "text": message, "parse_mode": "Markdown"}
-    requests.post(url, data=payload)
 
 if __name__ == "__main__":
-    result = get_tomorrow_classes()
-    
-    if result == "WEEKEND_MODE":
-        # Do nothing, bot stays silent on weekends
-        pass
-    elif result is None:
-        print("Failed to fetch schedule.")
-    elif len(result) > 0:
-        result.sort() # Sort by time
-        header = "🗓 **Classes for Tomorrow:**\n\n"
-        send_telegram(header + "\n\n".join(result))
-    else:
-        send_telegram("🎉 **No classes tomorrow!** Have fun! 🏖️")
+    print("Bot is listening for messages...")
+    bot.infinity_polling()

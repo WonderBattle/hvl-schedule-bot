@@ -1,0 +1,27 @@
+name: Send Daily Reminder
+on:
+  schedule:
+    - cron: '0 20 * * *' # This runs every night at 20:00 UTC (approx 21:00/22:00 in Norway)
+  workflow_dispatch: # This allows you to run it manually to test
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: pip install requests icalendar pytz
+
+      - name: Run script
+        env:
+          TIMEEDIT_URL: ${{ secrets.TIMEEDIT_URL }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python reminder.py

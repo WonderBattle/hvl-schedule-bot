@@ -126,7 +126,15 @@ def run_scheduler():
 
 @bot.message_handler(commands=['start'])
 def welcome(message):
-    bot.reply_to(message, "👋 Welcome! Send me your TimeEdit .ics link to get reminders.\nUse /tomorrow anytime to check your next classes.")
+    welcome_text = (
+        "👋 **Welcome to the HVL Schedule Bot!**\n\n"
+        "Send me your TimeEdit `.ics` link to register for daily reminders at 21:00.\n\n"
+        "**Commands:**\n"
+        "📅 /today - Check today's classes\n"
+        "📅 /tomorrow - Check tomorrow's classes\n"
+        "🔄 `/update [link]` - Change your schedule link"
+    )
+    bot.reply_to(message, welcome_text, parse_mode="Markdown")
 
 @bot.message_handler(commands=['tomorrow'])
 def manual_check(message):
@@ -156,6 +164,43 @@ def manual_check_today(message):
             bot.reply_to(message, "⚠️ You are not registered yet. Please send your .ics link first!")
     except Exception as e:
         print(f"Manual check error: {e}")
+
+@bot.message_handler(commands=['update'])
+def update_link(message):
+    chat_id = str(message.chat.id)
+    
+    # 1. Split the message into two parts: the command and the link
+    # maxsplit=1 ensures we only split at the first space
+    text_parts = message.text.split(maxsplit=1) 
+    
+    # 2. Validation: Check if they provided a link, and if it's an .ics link
+    if len(text_parts) < 2 or ".ics" not in text_parts[1]:
+        bot.reply_to(
+            message, 
+            "⚠️ Please provide your TimeEdit link after the command.\n\n*Format:*\n`/update [your_link.ics]`", 
+            parse_mode="Markdown"
+        )
+        return
+
+    # 3. Extract the clean URL
+    new_url = text_parts[1].strip()
+    username = message.from_user.username or "User"
+    
+    try:
+        ws = get_sheet()
+        # Look for existing user
+        try:
+            cell = ws.find(chat_id)
+            # update_cell takes (row, column, new_value). URL is in column 2!
+            ws.update_cell(cell.row, 2, new_url)
+            bot.reply_to(message, "✅ Your schedule has been successfully updated! Try /today to see your new classes.")
+        except: 
+            # If they use /update but aren't in the database yet, we register them anyway
+            ws.append_row([chat_id, new_url, username])
+            bot.reply_to(message, "🚀 Registered and updated! You will get daily reminders at 21:00. Try /today now!")
+    except Exception as e:
+        bot.reply_to(message, "❌ Error saving to database. Please try again later.")
+        print(f"Update command error: {e}")
 
 @bot.message_handler(func=lambda m: ".ics" in m.text)
 def save_user(message):

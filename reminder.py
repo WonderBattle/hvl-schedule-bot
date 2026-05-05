@@ -37,23 +37,31 @@ bot = telebot.TeleBot(TOKEN)
 
 # --- CORE LOGIC ---
 
-def get_tomorrow_info(tz):
-    tomorrow_obj = (datetime.now(tz) + timedelta(days=1))
-    day = tomorrow_obj.day
+def get_date_info(tz, target="tomorrow"):
+    """Generates the date string and the raw date object for today or tomorrow"""
+    if target == "today":
+        target_obj = datetime.now(tz)
+    else:
+        target_obj = (datetime.now(tz) + timedelta(days=1))
+        
+    day = target_obj.day
     # Adding the English suffix (1st, 2nd, 3rd, 4th...)
     if 11 <= day <= 13:
         suffix = 'th'
     else:
         suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(day % 10, 'th')
-    date_str = tomorrow_obj.strftime(f"{day}{suffix} %B")
-    return tomorrow_obj.date(), date_str
+    date_str = target_obj.strftime(f"{day}{suffix} %B")
+    
+    return target_obj.date(), date_str
 
-def fetch_classes(url):
+def fetch_classes(url, target="tomorrow"):
     try:
         response = requests.get(url)
         calendar = Calendar.from_ical(response.content)
         tz = pytz.timezone("Europe/Oslo")
-        tomorrow_date, date_text = get_tomorrow_info(tz)
+        
+        # Use our new flexible date function!
+        target_date, date_text = get_date_info(tz, target)
         
         events = []
         for component in calendar.walk('VEVENT'):
@@ -62,7 +70,8 @@ def fetch_classes(url):
             
             if isinstance(start_dt, datetime):
                 start_local = start_dt.astimezone(tz)
-                if start_local.date() == tomorrow_date:
+                # Check against our target_date instead of just 'tomorrow'
+                if start_local.date() == target_date:
                     end_local = end_dt.astimezone(tz)
                     duration = end_local - start_local
                     hours, remainder = divmod(duration.seconds, 3600)
@@ -77,10 +86,13 @@ def fetch_classes(url):
                     time_info = f"{start_local.strftime('%H:%M')} - {end_local.strftime('%H:%M')} ({dur_str})"
                     events.append(f"📚 *{course}*\n⏰ {time_info}\n📍 {location}")
         
+        # Dynamically change the prefix based on what we asked for
+        prefix = "TODAY" if target == "today" else "TOMORROW"
+        
         if events:
-            return f"📅 **TOMORROW: {date_text}**\nYou have these classes:\n\n" + "\n\n".join(sorted(events))
+            return f"📅 **{prefix}: {date_text}**\nYou have these classes:\n\n" + "\n\n".join(sorted(events))
         else:
-            return f"📅 **TOMORROW: {date_text}**\nYou don't have classes! Enjoy! 🎉"
+            return f"📅 **{prefix}: {date_text}**\nYou don't have classes! Enjoy! 🎉"
             
     except Exception as e:
         print(f"Error fetching {url}: {e}")
@@ -124,6 +136,21 @@ def manual_check(message):
         if cell:
             url = ws.cell(cell.row, 2).value
             msg = fetch_classes(url)
+            bot.send_message(message.chat.id, msg, parse_mode="Markdown")
+        else:
+            bot.reply_to(message, "⚠️ You are not registered yet. Please send your .ics link first!")
+    except Exception as e:
+        print(f"Manual check error: {e}")
+
+@bot.message_handler(commands=['today'])
+def manual_check_today(message):
+    try:
+        ws = get_sheet()
+        cell = ws.find(str(message.chat.id))
+        if cell:
+            url = ws.cell(cell.row, 2).value
+            # We pass target="today" to force it to look at today's schedule!
+            msg = fetch_classes(url, target="today")
             bot.send_message(message.chat.id, msg, parse_mode="Markdown")
         else:
             bot.reply_to(message, "⚠️ You are not registered yet. Please send your .ics link first!")

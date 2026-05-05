@@ -1,4 +1,3 @@
-<img width="1920" height="1080" alt="1" src="https://github.com/user-attachments/assets/13e5b449-832c-41cb-b141-ee9d88299a4c" />
 # 🤖 HVL Class Reminder Bot
 
 > **Never miss a lecture at HVL Bergen again.**

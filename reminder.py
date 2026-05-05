@@ -117,7 +117,7 @@ def send_daily_reminders():
         print(f"Broadcast Error: {e}")
 
 def run_scheduler():
-    schedule.every().day.at("21:00").do(send_daily_reminders)
+    schedule.every().day.at("21:00", "Europe/Oslo").do(send_daily_reminders)
     while True:
         schedule.run_pending()
         time.sleep(30)

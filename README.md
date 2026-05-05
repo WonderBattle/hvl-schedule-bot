@@ -10,13 +10,13 @@ An automated Telegram bot designed for students at **Høgskulen på Vestlandet (
 
 * **One-Time Setup:** Just send your TimeEdit `.ics` link once; the bot remembers you forever.
 * **Daily Reminders:** Automatic messages every night at **21:00** (Bergen time).
-* **On-Demand Checking:** Use the `/tomorrow` command to see your next classes instantly.
-* **Smart Filtering:** * Calculates class **duration** (e.g., 2h 45m).
-* Cleans messy TimeEdit codes into readable course names (e.g., *DAT151*).
+* **On-Demand Checking:** Use the `/today` or `/tomorrow` commands to see your classes instantly.
+* **Update Anytime:** Schedule changed? Just use `/update` with your new link.
+* **Smart Filtering:** 
+  * Calculates class **duration** (e.g., 2h 45m).
+  * Cleans messy TimeEdit codes into readable course names (e.g., *DAT151*).
 * **Weekend Mode:** Automatically stays silent on Friday and Saturday nights.
-
-
-* **Cloud Hosted:** Runs 24/7 on Render.com with a custom heartbeat to prevent sleeping.
+* **Cloud Hosted:** Runs 24/7 in the cloud to ensure reminders are always sent on time.
 
 ---
 
@@ -25,34 +25,43 @@ An automated Telegram bot designed for students at **Høgskulen på Vestlandet (
 * **Language:** Python 3.12
 * **Bot Framework:** `pyTelegramBotAPI` (Telebot)
 * **Database:** Google Sheets API (used as a lightweight, visible NoSQL database)
-* **Hosting:** Render.com (Web Service)
-* **Automation:** `schedule` library + `cron-job.org` (to keep the service awake)
+* **Automation:** `schedule` library 
 
 ---
 
 ## 📖 User Guide (For Students)
 
-1. **Find the Bot:** Search for `[@HVLSchedule_bot]` on Telegram.
-2. **Get your Link:**
-* Go to [HVL TimeEdit](https://www.google.com/search?q=https://cloud.timeedit.net/hvl/web/open/).
-* Search for your courses and click **Vis timeplan**.
-* Click **Abbonér** (top right) and copy the `.ics` link.
+### 1. Find the Bot
+Search for `[@HVLSchedule_bot]` on Telegram and click **Start**.
+
+### 2. Get your TimeEdit Link
+Follow these exact steps to get your personalized schedule link:
+
+1. Go to the [HVL TimeEdit Open Entrance](https://cloud.timeedit.net/hvl/web/open/) and click on **Alle campus**.
+
+2. In the **Søk** (Search) box, type your course codes.
+3. Click your courses in the **Søkeresultat** (Search results) to add them to your **Mine valg** (My choices). 
+4. When you have selected all your courses, click the **Vis timeplan** (Show schedule) button at the bottom.
+
+5. On the schedule page, click the **Abonnér** button in the top right corner.
+6. In the popup, change the **Tid** (Time) dropdown to select the whole semester (e.g., *Nå - 19.06.2026*) instead of the default 4 weeks.
+7. Click the blue **Kopier** (Copy) button to copy your `.ics` link.
 
 
-3. **Register:** Paste the link into the Telegram chat. The bot will confirm: `🚀 Registered!`.
-4. **Commands:**
-* `/start`: Welcome message and instructions.
-* `/tomorrow`: Get a summary of tomorrow's date and classes immediately.
+### 3. Register
+Paste the link you just copied directly into the Telegram chat. The bot will confirm: `🚀 Registered!`.
 
-
-
-`[Insert Screenshot of the bot replying with a schedule for February 26th]`
+### 4. Bot Commands
+* `/start` - Welcome message and instructions.
+* `/today` - Get a summary of today's date and classes immediately.
+* `/tomorrow` - Get a summary of tomorrow's date and classes immediately.
+* `/update [link]` - Change your schedule link if your courses change.
 
 ---
 
 ## 🚀 Setup Guide (For Developers)
 
-If you want to host your own version of this bot, follow these steps:
+If you want to run your own local version of this bot or contribute to the code, follow these steps:
 
 ### 1. Prerequisites
 
@@ -60,42 +69,37 @@ If you want to host your own version of this bot, follow these steps:
 * A Google Cloud Project with **Google Sheets** and **Google Drive** APIs enabled.
 * A Service Account JSON key.
 
-### 2. Local Environment
+### 2. Local Environment Setup
 
 1. Clone the repo and create a virtual environment:
 ```bash
 python -m venv venv
 source venv/bin/activate  # macOS/Linux
 pip install -r requirements.txt
-
 ```
 
-
-2. Create a `.env` file:
+2. Duplicate the `.env.example` file, rename it to `.env`, and fill in your keys:
 ```text
 TELEGRAM_TOKEN=your_token_here
-
+GOOGLE_CREDS_JSON={"type": "service_account", ...}
 ```
 
+3. Run the bot:
+```bash
+python reminder.py
+```
 
-3. Place your Google JSON key in the root folder.
-
-### 3. Deployment (Render)
-
-1. Fork this repository.
-2. Create a new **Web Service** on Render connected to your fork.
-3. Add the following **Environment Variables** in the Render dashboard:
-* `TELEGRAM_TOKEN`: Your bot token.
-* `GOOGLE_CREDS_JSON`: The **entire contents** of your Service Account JSON file.
-
-
-4. Set up a pinger on `cron-job.org` to hit your Render URL every 10 minutes to prevent the Free Tier from sleeping.
-
+**⚠️ IMPORTANT NOTE ON LOCAL TESTING (Error 409 Conflict):**  
+Telegram only allows **one** connection to a bot at a time. If the bot is already hosted and running in the cloud (production), and you try to run `python reminder.py` locally on your machine with the same `TELEGRAM_TOKEN`, it will crash with a `409 Conflict: terminated by other getUpdates request` error. To test locally, you must temporarily pause or suspend the cloud-hosted version, or use a separate testing bot token.
 
 ---
+
+## 👨‍💻 Author
+
+Created by **Elena Cancho** for the students at Høgskulen på Vestlandet.  
+*Connect with me on [LinkedIn](https://www.linkedin.com/in/elena-cancho-94435932a/?skipRedirect=true)*
+*Other projects: [WonderBattle](https://github.com/WonderBattle)*
 
 ## 📄 License
 
 Distributed under the MIT License. Feel free to fork and adapt for other universities!
-
----
